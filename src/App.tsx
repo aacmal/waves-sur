@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, CSSProperties } from "react";
 
@@ -137,7 +135,7 @@ function hexToHsl(hex: string): HslColor {
   }
 
   const saturation = delta / (1 - Math.abs(2 * lightness - 1));
-  let hue = 0;
+  let hue: number;
 
   if (maximum === red) {
     hue = 60 * (((green - blue) / delta) % 6);
@@ -575,7 +573,7 @@ function RangeControl({
   );
 }
 
-export default function Home() {
+export default function App() {
   const [parameters, setParameters] = useState(DEFAULT_PARAMETERS);
   const [dimensionDrafts, setDimensionDrafts] = useState({
     width: String(DEFAULT_PARAMETERS.width),
@@ -628,7 +626,9 @@ export default function Home() {
             typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color),
         );
       }
-    } catch {}
+    } catch {
+      // Ignore invalid persisted color data and use an empty palette.
+    }
 
     const timer = window.setTimeout(() => setSavedColors(nextColors), 0);
     return () => window.clearTimeout(timer);

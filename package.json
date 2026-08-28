@@ -1,27 +1,30 @@
 {
-  "name": "waves",
-  "version": "0.1.0",
+  "name": "waves-vite",
   "private": true,
+  "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "check": "tsc --noEmit --incremental false",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "check": "tsc -b --pretty false",
+    "lint": "eslint .",
+    "preview": "vite preview"
   },
   "dependencies": {
-    "next": "16.3.3",
+    "@vitejs/plugin-react": "6.1.0",
+    "vite": "8.2.2",
+    "typescript": "6.0.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.3.3",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@eslint/js": "10.0.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.5",
+    "eslint": "10.9.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.5",
+    "globals": "17.11.0",
+    "typescript-eslint": "8.68.0"
   }
 }

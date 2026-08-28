@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Waves Vite
 
-## Getting Started
+A single-page React application for creating deterministic layered wave artwork and exporting it
+as SVG, JPG, or After Effects JSX. The application is built with Vite and runs entirely in the
+browser.
 
-First, run the development server:
+## Windows commands
+
+This project lives on a Windows filesystem. Run its toolchain through Windows `cmd.exe`, including
+when working from WSL:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+project_win_path="$(wslpath -w "$PWD")"
+cmd.exe /d /c "cd /d $project_win_path && npm run dev"
+cmd.exe /d /c "cd /d $project_win_path && npm run check"
+cmd.exe /d /c "cd /d $project_win_path && npm run lint"
+cmd.exe /d /c "cd /d $project_win_path && npm run build"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Do not install packages or run Node, npm, Vite, validation, or build commands through the WSL
+toolchain.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `index.html` contains the static SEO metadata and application mount point.
+- `src/App.tsx` contains the generator, controls, preview, and exporters.
+- `src/index.css` contains the complete responsive visual system.
+- `src/main.tsx` mounts the React application.
