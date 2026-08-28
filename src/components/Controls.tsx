@@ -1,21 +1,15 @@
 import type { CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
-import {
-  ArrowRight,
-  Dices,
-  Download,
-  GitFork,
-  RotateCcw,
-  SunMoon,
-} from "lucide-react";
+import { ArrowRight, Dices, Download, RotateCcw, SunMoon } from "lucide-react";
+import GithubIcon from "./GithubIcon";
 
 type IconName = "arrow" | "dice" | "download" | "github" | "reset" | "theme";
 
-const ICONS: Record<IconName, LucideIcon> = {
+const ICONS: Record<IconName, LucideIcon | React.ComponentType> = {
   arrow: ArrowRight,
   dice: Dices,
   download: Download,
-  github: GitFork,
+  github: GithubIcon,
   reset: RotateCcw,
   theme: SunMoon,
 };
