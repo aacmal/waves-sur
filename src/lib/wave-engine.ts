@@ -52,7 +52,13 @@ export const DEFAULT_PARAMETERS: WaveParameters = {
 
 const BACKGROUND_COLOR = "#11121c";
 
-export const COLOR_SWATCHES = ["#6d63ff", "#ff705d", "#ffb84d", "#40c7b4", "#da67cf"];
+export const COLOR_SWATCHES = [
+  "#6d63ff",
+  "#ff705d",
+  "#ffb84d",
+  "#40c7b4",
+  "#da67cf",
+];
 export const SAVED_COLORS_KEY = "wave-lab-saved-colors";
 export const PRESETS = [
   { label: "Wide", width: 1920, height: 1080 },
