@@ -1,30 +1,19 @@
-# Waves Gen
+# Waves Sur
 
-A single-page React and Tailwind CSS application for creating deterministic layered wave artwork
-and exporting it as SVG, JPG, or After Effects JSX. It is built with Vite and runs entirely in the
-browser.
+A small browser-based studio for making layered wave artwork. Choose a canvas, shape the composition, explore a color palette, and export the result without sending anything to a server.
 
-## Windows commands
+[waves.wanakerta.com](https://waves.wanakerta.com/)
 
-This project lives on a Windows filesystem. Run its toolchain through Windows `cmd.exe`, including
-when working from WSL:
+![Waves Sur interface showing colorful layered wave artwork](./public/og-image.png)
 
-```bash
-project_win_path="$(wslpath -w "$PWD")"
-cmd.exe /d /c "cd /d $project_win_path && npm run dev"
-cmd.exe /d /c "cd /d $project_win_path && npm run check"
-cmd.exe /d /c "cd /d $project_win_path && npm run lint"
-cmd.exe /d /c "cd /d $project_win_path && npm run build"
-```
+## What it can do
 
-Do not install packages or run Node, npm, Vite, validation, or build commands through the WSL
-toolchain.
+- Generate repeatable compositions from a numeric seed.
+- Stack anywhere from 1 to 64 waves in a single scene.
+- Start with wide, square, or portrait presets or enter a custom resolution.
+- Adjust hue range, saturation, and lightness while previewing every change immediately.
+- Keep custom colors in the browser.
+- Switch between light and dark interface themes.
+- Export the same composition as SVG, high-quality JPG, or editable After Effects JSX layers.
 
-## Structure
-
-- `index.html` contains the static SEO metadata and application mount point.
-- `src/App.tsx` contains the generator, controls, preview, and exporters.
-- `src/index.css` composes the responsive visual system from Tailwind utilities and keeps only
-  browser-specific slider styling in CSS.
-- `src/components/Controls.tsx` contains the two small reusable controls shared by the panel.
-- `src/main.tsx` mounts the React application.
+The SVG, JPG, and After Effects exporters all use the same generated scene, so the artwork stays consistent between formats.

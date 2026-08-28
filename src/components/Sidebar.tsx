@@ -112,6 +112,16 @@ export function Sidebar({
           Parameters
         </span>
         <div className="flex gap-2">
+          <a
+            className="grid size-9 place-items-center rounded-xl border border-transparent bg-[#e1e2e7] text-[#555966] transition hover:-translate-y-px hover:border-black/20 hover:text-[#3948d7] dark:bg-[#242632] dark:text-[#b4b4bd] dark:hover:border-white/14 dark:hover:text-[#d8ff72]"
+            href="https://github.com/aacmal/waves-sur"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View Waves Sur on GitHub"
+            title="View on GitHub"
+          >
+            <Icon name="github" />
+          </a>
           <button
             className="flex min-h-9 items-center gap-2 rounded-xl border border-transparent bg-[#e1e2e7] dark:bg-[#242632] px-3 font-mono text-[11px] uppercase tracking-wide text-[#555966] dark:text-[#b4b4bd] transition hover:-translate-y-px hover:border-black/20 dark:hover:border-white/14 hover:text-[#3948d7] dark:hover:text-[#d8ff72] max-[680px]:w-9 max-[680px]:justify-center max-[680px]:p-0"
             type="button"
@@ -369,6 +379,7 @@ export function Sidebar({
           </p>
         )}
       </section>
+
     </aside>
   );
 }
