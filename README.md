@@ -1,7 +1,7 @@
-# Waves Vite
+# Waves Gen
 
-A single-page React application for creating deterministic layered wave artwork and exporting it
-as SVG, JPG, or After Effects JSX. The application is built with Vite and runs entirely in the
+A single-page React and Tailwind CSS application for creating deterministic layered wave artwork
+and exporting it as SVG, JPG, or After Effects JSX. It is built with Vite and runs entirely in the
 browser.
 
 ## Windows commands
@@ -24,5 +24,7 @@ toolchain.
 
 - `index.html` contains the static SEO metadata and application mount point.
 - `src/App.tsx` contains the generator, controls, preview, and exporters.
-- `src/index.css` contains the complete responsive visual system.
+- `src/index.css` composes the responsive visual system from Tailwind utilities and keeps only
+  browser-specific slider styling in CSS.
+- `src/components/Controls.tsx` contains the two small reusable controls shared by the panel.
 - `src/main.tsx` mounts the React application.

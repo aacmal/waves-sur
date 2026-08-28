@@ -29,8 +29,9 @@ commands.
 
 ## Project rules
 
-- This is a Vite and React single-page application with no Next.js dependency or runtime.
 - Keep static SEO metadata in `index.html`.
+- Use Tailwind CSS for layout and component styling. Keep native CSS only for theme variables,
+  browser-specific range pseudo-elements, and behavior Tailwind cannot express clearly.
 - Keep the generator deterministic and ensure SVG, JPG, and After Effects JSX exports consume the
   same generated scene.
 - Preserve responsive canvas sizing, including portrait canvases constrained to viewport height.
