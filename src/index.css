@@ -1,48 +1,77 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
 @layer base {
   * { box-sizing: border-box; }
-  html { color-scheme: light; background: #f2f2ee; }
-  html.dark { color-scheme: dark; background: #090a0f; }
-  body { min-width: 320px; margin: 0; font-family: Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  html {
+    color-scheme: light;
+    background: #f0eff5;
+    height: 100%;
+    overflow: hidden;
+  }
+  html.dark {
+    color-scheme: dark;
+    background: #080910;
+    overflow: hidden;
+  }
+  body {
+    min-width: 320px;
+    margin: 0;
+    font-family: 'Inter', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    height: 100%;
+    overflow: hidden;
+  }
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
   button, input { font: inherit; }
   button { cursor: pointer; }
   button:disabled { cursor: wait; opacity: 0.55; }
 }
 
+/* Range slider styles */
 .range-input {
-  background: linear-gradient(to right, var(--range-accent) 0, var(--range-accent) var(--range-progress), #242632 var(--range-progress), #242632 100%);
+  background: linear-gradient(to right, var(--range-accent) 0, var(--range-accent) var(--range-progress), rgba(255,255,255,0.08) var(--range-progress), rgba(255,255,255,0.08) 100%);
 }
 .range-input::-webkit-slider-thumb {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   appearance: none;
-  border: 4px solid #151620;
+  border: 3px solid #0d0f1a;
   border-radius: 999px;
   background: var(--range-accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--range-accent) 60%, white), 0 4px 12px rgb(0 0 0 / 28%);
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--range-accent) 55%, white), 0 3px 10px rgb(0 0 0 / 35%);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--range-accent) 55%, white), 0 4px 14px rgb(0 0 0 / 40%);
 }
 .range-input::-moz-range-thumb {
   width: 12px;
   height: 12px;
-  border: 4px solid #151620;
+  border: 3px solid #0d0f1a;
   border-radius: 999px;
   background: var(--range-accent);
 }
 
+/* Popover animations */
 @keyframes wave-popover-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
 
 @keyframes wave-popover-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from { opacity: 1; transform: translateY(0)   scale(1); }
+  to   { opacity: 0; transform: translateY(6px) scale(0.96); }
 }
 
 .wave-popover-content[data-state="open"] {
-  animation: wave-popover-in 160ms ease-out both;
+  animation: wave-popover-in 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .wave-popover-content[data-state="closed"] {
@@ -50,6 +79,57 @@
   animation: wave-popover-out 140ms ease-in both;
 }
 
+/* Canvas dot grid background */
+.canvas-area-bg {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+html:not(.dark) .canvas-area-bg {
+  background-image: radial-gradient(circle, rgba(0,0,0,0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Sidebar scrollbar */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 999px;
+}
+
+/* Animated gradient logo text */
+@keyframes logo-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.logo-text {
+  background: linear-gradient(135deg, #a78bff 0%, #d8ff72 40%, #7ee8fa 70%, #a78bff 100%);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: logo-shimmer 6s ease infinite;
+}
+
+/* Section card hover glow */
+.section-card {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

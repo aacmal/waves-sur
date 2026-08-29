@@ -662,6 +662,13 @@ export function sceneToAfterEffectsJsx(scene: WaveScene) {
 
   background.moveToEnd();
   comp.openInViewer();
+
+  for (var index = 0; index < scene.layers.length; index += 1) {
+    addWaveLayer(comp, scene.layers[index]);
+  }
+
+  background.moveToEnd();
+  comp.openInViewer();
   app.endUndoGroup();
 })();
 `;
@@ -676,4 +683,76 @@ export function downloadBlob(blob: Blob, filename: string) {
   anchor.click();
   anchor.remove();
   URL.revokeObjectURL(url);
+}
+
+/** Serialize all wave parameters into a URLSearchParams object for sharing. */
+export function parametersToSearchParams(params: WaveParameters): URLSearchParams {
+  const sp = new URLSearchParams();
+  sp.set("seed", String(params.seed));
+  sp.set("width", String(params.width));
+  sp.set("height", String(params.height));
+  sp.set("waves", String(params.numberOfWaves));
+  sp.set("rotation", String(params.rotation));
+  sp.set("hue", String(params.hueRange));
+  sp.set("sat", String(params.saturation));
+  sp.set("light", String(params.lightness));
+  sp.set("color", params.baseColor.replace(/^#/, ""));
+  const overrides = params.colorOverrides ?? {};
+  if (Object.keys(overrides).length > 0) {
+    sp.set(
+      "co",
+      Object.entries(overrides)
+        .map(([k, v]) => `${k}:${v.replace(/^#/, "")}`)
+        .join(","),
+    );
+  }
+  return sp;
+}
+
+/** Parse a URLSearchParams object and return only the valid fields found. */
+export function searchParamsToParameters(sp: URLSearchParams): Partial<WaveParameters> {
+  const result: Partial<WaveParameters> = {};
+
+  // map from URL key → [param key, min, max, trunc?]
+  const intFields: [string, keyof WaveParameters, number, number, boolean?][] = [
+    ["seed",     "seed",          -Infinity, Infinity,  true],
+    ["width",    "width",         240,       5000],
+    ["height",   "height",        240,       5000],
+    ["waves",    "numberOfWaves", 1,         32],
+    ["rotation", "rotation",      0,         360],
+    ["hue",      "hueRange",      0,         360],
+    ["sat",      "saturation",    0,         100],
+    ["light",    "lightness",     0,         100],
+  ];
+
+  for (const [urlKey, paramKey, min, max, trunc] of intFields) {
+    const raw = sp.get(urlKey);
+    if (raw === null) continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) continue;
+    (result as Record<string, unknown>)[paramKey] = trunc
+      ? Math.trunc(n)
+      : Math.min(max, Math.max(min, Math.round(n)));
+  }
+
+  const color = sp.get("color");
+  if (color !== null && /^[0-9a-f]{6}$/i.test(color))
+    result.baseColor = `#${color.toLowerCase()}`;
+
+  const co = sp.get("co");
+  if (co) {
+    const overrides: Record<string, string> = {};
+    co.split(",").forEach((entry) => {
+      const idx = entry.indexOf(":");
+      if (idx > 0) {
+        const key = entry.slice(0, idx);
+        const val = entry.slice(idx + 1);
+        if (key && /^[0-9a-f]{6}$/i.test(val))
+          overrides[key] = `#${val.toLowerCase()}`;
+      }
+    });
+    if (Object.keys(overrides).length > 0) result.colorOverrides = overrides;
+  }
+
+  return result;
 }

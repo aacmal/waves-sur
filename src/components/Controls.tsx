@@ -46,16 +46,16 @@ export function RangeControl({
   } as CSSProperties;
 
   return (
-    <div className="mt-[18px] first:mt-0">
-      <div className="mb-2.5 flex items-center justify-between">
+    <div className="mt-4 first:mt-0">
+      <div className="mb-2 flex items-center justify-between">
         <label
-          className="font-mono text-[11px] uppercase text-[#555966] dark:text-[#b4b4bd]"
+          className="font-mono text-[10px] uppercase tracking-widest text-black/60 dark:text-white/55"
           htmlFor={label}
         >
           {label}
         </label>
         <output
-          className="min-w-10 rounded-lg bg-[color-mix(in_srgb,var(--range-accent)_12%,transparent)] px-2 py-1 text-center font-mono text-[11px] uppercase text-[#171923] dark:text-white"
+          className="min-w-10 rounded-md bg-[color-mix(in_srgb,var(--range-accent)_14%,transparent)] px-2 py-0.5 text-center font-mono text-[10px] font-semibold text-[#171923] dark:text-white"
           htmlFor={label}
         >
           {displayValue}
@@ -63,7 +63,7 @@ export function RangeControl({
       </div>
       <input
         id={label}
-        className="range-input block h-2 w-full cursor-pointer appearance-none rounded-lg"
+        className="range-input block h-1.5 w-full cursor-pointer appearance-none rounded-full"
         type="range"
         min={min}
         max={max}
