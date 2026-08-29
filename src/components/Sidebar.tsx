@@ -10,14 +10,14 @@ import {
 } from "../lib/wave-engine";
 import type { WaveParameters } from "../lib/wave-engine";
 
-export type ExportState = "idle" | "svg" | "jpg" | "jsx";
+export type ExportState = "idle" | "svg" | "png" | "jsx";
 
 type SidebarProps = {
   parameters: WaveParameters;
   setParameters: Dispatch<SetStateAction<WaveParameters>>;
   exportState: ExportState;
   onExportSvg: () => void;
-  onExportJpg: () => void;
+  onExportPng: () => void;
   onExportAfterEffects: () => void;
   shareState: "idle" | "copied";
   onShare: () => void;
@@ -33,7 +33,7 @@ export function Sidebar({
   setParameters,
   exportState,
   onExportSvg,
-  onExportJpg,
+  onExportPng,
   onExportAfterEffects,
   shareState,
   onShare,
@@ -129,7 +129,6 @@ export function Sidebar({
         min-[900px]:border-t-0 min-[900px]:border-l
       ">
         <SidebarToolbar
-          baseColor={parameters.baseColor}
           resetParameters={resetParameters}
           shareState={shareState}
           onShare={onShare}
@@ -138,7 +137,7 @@ export function Sidebar({
         <SidebarExportFooter
           exportState={exportState}
           onExportSvg={onExportSvg}
-          onExportJpg={onExportJpg}
+          onExportPng={onExportPng}
           onExportAfterEffects={onExportAfterEffects}
         />
       </aside>
@@ -161,12 +160,10 @@ type PanelProps = {
 };
 
 function SidebarToolbar({
-  baseColor,
   resetParameters,
   shareState,
   onShare,
 }: {
-  baseColor: string;
   resetParameters: () => void;
   shareState: "idle" | "copied";
   onShare: () => void;
@@ -474,12 +471,12 @@ function SidebarScrollBody({
 function SidebarExportFooter({
   exportState,
   onExportSvg,
-  onExportJpg,
+  onExportPng,
   onExportAfterEffects,
 }: {
   exportState: ExportState;
   onExportSvg: () => void;
-  onExportJpg: () => void;
+  onExportPng: () => void;
   onExportAfterEffects: () => void;
 }) {
   return (
@@ -503,8 +500,8 @@ function SidebarExportFooter({
         />
         <ExportButton
           className="bg-[#ffd083] text-[#281a06] hover:bg-[#ffdc9f]"
-          label="JPG"
-          onClick={onExportJpg}
+          label="PNG"
+          onClick={onExportPng}
           disabled={exportState !== "idle"}
         />
         <ExportButton

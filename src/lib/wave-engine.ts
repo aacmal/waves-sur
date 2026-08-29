@@ -500,7 +500,11 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
   };
 }
 
-export function sceneToSvg(scene: WaveScene) {
+export function sceneToSvg(
+  scene: WaveScene,
+  outputWidth = scene.width,
+  outputHeight = scene.height,
+) {
   const gradients = scene.layers
     .map(
       (layer) =>
@@ -517,7 +521,7 @@ export function sceneToSvg(scene: WaveScene) {
   const canvasFill = scene.layers[0]
     ? `url(#${scene.layers[0].id}-gradient)`
     : scene.backgroundColor;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${scene.width}" height="${scene.height}" viewBox="0 0 ${scene.width} ${scene.height}"><title>Generated wave artwork</title><defs>${gradients}</defs><rect width="100%" height="100%" fill="${canvasFill}"/>${paths}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${outputWidth}" height="${outputHeight}" viewBox="0 0 ${scene.width} ${scene.height}"><title>Generated wave artwork</title><defs>${gradients}</defs><rect width="100%" height="100%" fill="${canvasFill}"/>${paths}</svg>`;
 }
 
 export function sceneToAfterEffectsJsx(scene: WaveScene) {

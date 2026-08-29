@@ -15,6 +15,6 @@ A small browser-based studio for making layered wave artwork. Choose a canvas, s
 - Adjust hue range, saturation, and lightness while previewing every change immediately.
 - Keep custom colors in the browser.
 - Switch between light and dark interface themes.
-- Export the same composition as SVG, high-quality JPG, or editable After Effects JSX layers.
+- Export the same composition as SVG, lossless PNG, or editable After Effects JSX layers.
 
-The SVG, JPG, and After Effects exporters all use the same generated scene, so the artwork stays consistent between formats.
+The SVG, PNG, and After Effects exporters all use the same generated scene, so the artwork stays consistent between formats.

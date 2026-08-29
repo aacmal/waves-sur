@@ -18,6 +18,40 @@ import {
 } from "./lib/wave-engine";
 import { Icon } from "./components/Controls";
 
+const PNG_EXPORT_SCALE = 2;
+const PNG_DITHER_STRENGTH = 1.25;
+const PNG_DITHER_TILE_HEIGHT = 128;
+
+function applyPngDither(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  seed: number,
+) {
+  let noiseState = (Math.trunc(seed) ^ 0x9e3779b9) >>> 0;
+  if (noiseState === 0) noiseState = 0x6d2b79f5;
+
+  for (let y = 0; y < height; y += PNG_DITHER_TILE_HEIGHT) {
+    const tileHeight = Math.min(PNG_DITHER_TILE_HEIGHT, height - y);
+    const imageData = context.getImageData(0, y, width, tileHeight);
+    const pixels = imageData.data;
+
+    for (let index = 0; index < pixels.length; index += 4) {
+      noiseState ^= noiseState << 13;
+      noiseState ^= noiseState >>> 17;
+      noiseState ^= noiseState << 5;
+
+      const dither =
+        ((noiseState >>> 24) / 255 - 0.5) * 2 * PNG_DITHER_STRENGTH;
+      pixels[index] += dither;
+      pixels[index + 1] += dither;
+      pixels[index + 2] += dither;
+    }
+
+    context.putImageData(imageData, 0, y);
+  }
+}
+
 export default function App() {
   // Initialize from URL query params if present
   const [parameters, setParameters] = useState(() => {
@@ -121,9 +155,11 @@ export default function App() {
     window.setTimeout(() => setExportState("idle"), 700);
   };
 
-  const exportJpg = async () => {
-    setExportState("jpg");
-    const svgBlob = new Blob([sceneToSvg(scene)], {
+  const exportPng = async () => {
+    setExportState("png");
+    const exportWidth = scene.width * PNG_EXPORT_SCALE;
+    const exportHeight = scene.height * PNG_EXPORT_SCALE;
+    const svgBlob = new Blob([sceneToSvg(scene, exportWidth, exportHeight)], {
       type: "image/svg+xml;charset=utf-8",
     });
     const objectUrl = URL.createObjectURL(svgBlob);
@@ -137,18 +173,21 @@ export default function App() {
       });
 
       const canvas = document.createElement("canvas");
-      canvas.width = scene.width;
-      canvas.height = scene.height;
+      canvas.width = exportWidth;
+      canvas.height = exportHeight;
       const context = canvas.getContext("2d");
       if (!context) throw new Error("Canvas is not available");
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = "high";
       context.fillStyle = scene.backgroundColor;
-      context.fillRect(0, 0, scene.width, scene.height);
-      context.drawImage(image, 0, 0, scene.width, scene.height);
+      context.fillRect(0, 0, exportWidth, exportHeight);
+      context.drawImage(image, 0, 0, exportWidth, exportHeight);
+      applyPngDither(context, exportWidth, exportHeight, scene.seed);
 
-      const jpgBlob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.96),
+      const pngBlob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/png"),
       );
-      if (jpgBlob) downloadBlob(jpgBlob, `wave-${parameters.seed}.jpg`);
+      if (pngBlob) downloadBlob(pngBlob, `wave-${parameters.seed}.png`);
     } finally {
       URL.revokeObjectURL(objectUrl);
       setExportState("idle");
@@ -192,7 +231,7 @@ export default function App() {
             <h1 className="font-bold tracking-tight">
               Waves Sur
             </h1>
-            <p className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-gray-800 dark:text-white/25">
+            <p className="mt-0.5 font-mono text-[9px] uppercase tracking-widest text-gray-800 dark:text-gray-300">
               Wave Generator
             </p>
           </div>
@@ -410,7 +449,7 @@ export default function App() {
           setParameters={setParameters}
           exportState={exportState}
           onExportSvg={exportSvg}
-          onExportJpg={exportJpg}
+          onExportPng={exportPng}
           onExportAfterEffects={exportAfterEffects}
           shareState={shareState}
           onShare={shareUrl}
