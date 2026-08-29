@@ -34,5 +34,9 @@ commands.
   browser-specific range pseudo-elements, and behavior Tailwind cannot express clearly.
 - Keep the generator deterministic and ensure SVG, JPG, and After Effects JSX exports consume the
   same generated scene.
+- Per-layer color overrides are optional six-digit hex colors keyed by stable layer ids (for
+  example, `wave-02`). Apply them in the generator so the preview and all exporters stay aligned;
+  an override becomes that layer's color base while preserving gradient variation from the HSL
+  controls.
 - Preserve responsive canvas sizing, including portrait canvases constrained to viewport height.
 - Preserve saved custom colors and their removal behavior in local storage.

@@ -106,7 +106,7 @@ export function Sidebar({
   };
 
   return (
-    <aside className="flex h-[calc(100vh-76px)] min-h-0 min-w-0 flex-col overflow-hidden rounded-l-[26px] border border-black/12 bg-white/60 shadow-[0_18px_50px_rgb(32_35_48/10%)] backdrop-blur-2xl max-[900px]:h-auto max-[900px]:rounded-none dark:border-white/8 dark:bg-[#151620]/92 dark:shadow-[0_18px_54px_rgb(0_0_0/24%)]">
+    <aside className="flex h-screen min-h-0 min-w-0 flex-col overflow-hidden rounded-l-[26px] border border-black/12 bg-white/60 shadow-[0_18px_50px_rgb(32_35_48/10%)] backdrop-blur-2xl max-[900px]:h-auto max-[900px]:rounded-none dark:border-white/8 dark:bg-[#151620]/92 dark:shadow-[0_18px_54px_rgb(0_0_0/24%)]">
       <div className="flex min-h-16 shrink-0 items-center justify-between px-4 pb-2.5 pt-3 max-[680px]:px-3">
         <span className="font-mono text-xs font-medium tracking-wide text-[#3948d7] dark:text-[#d8ff72]">
           Parameters
@@ -248,6 +248,16 @@ export function Sidebar({
             onChange={(value) => updateParameter("numberOfWaves", value)}
             accent={parameters.baseColor}
           />
+          <RangeControl
+            label="rotation"
+            value={parameters.rotation}
+            min={0}
+            max={360}
+            step={1}
+            displayValue={`${parameters.rotation}°`}
+            onChange={(value) => updateParameter("rotation", value)}
+            accent={parameters.baseColor}
+          />
         </section>
 
         <section
@@ -379,7 +389,6 @@ export function Sidebar({
           </p>
         )}
       </section>
-
     </aside>
   );
 }

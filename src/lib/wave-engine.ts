@@ -5,10 +5,12 @@ export type WaveParameters = {
   height: number;
   seed: number;
   numberOfWaves: number;
+  rotation: number;
   hueRange: number;
   saturation: number;
   lightness: number;
   baseColor: string;
+  colorOverrides?: Record<string, string>;
 };
 
 type ShapePathData = {
@@ -44,10 +46,12 @@ export const DEFAULT_PARAMETERS: WaveParameters = {
   height: 1080,
   seed: 199,
   numberOfWaves: 5,
+  rotation: 0,
   hueRange: 60,
   saturation: 60,
   lightness: 50,
   baseColor: "#6d63ff",
+  colorOverrides: {},
 };
 
 const BACKGROUND_COLOR = "#11121c";
@@ -113,6 +117,20 @@ function lerp(start: number, end: number, fraction: number) {
 
 function normalizeHue(hue: number) {
   return ((hue % 360) + 360) % 360;
+}
+
+function rotatePoint(point: Point, angle: number, width: number, height: number) {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const offsetX = point.x - centerX;
+  const offsetY = point.y - centerY;
+
+  return {
+    x: centerX + offsetX * cos - offsetY * sin,
+    y: centerY + offsetX * sin + offsetY * cos,
+  };
 }
 
 function adjustRelativeChannel(baseValue: number, control: number) {
@@ -197,13 +215,14 @@ function formatSvgNumber(value: number) {
 
 function createSmoothFilledPath(
   points: Point[],
-  width: number,
-  height: number,
+  closingPoints: Point[],
+  extensionLength = 0,
 ) {
   const factor = WAVE_SMOOTHNESS / 6;
-  let path = `M ${formatSvgNumber(points[0].x)} ${formatSvgNumber(points[0].y)}`;
   const inTangents = points.map(() => ({ x: 0, y: 0 }));
   const outTangents = points.map(() => ({ x: 0, y: 0 }));
+  const controlPoints1: Point[] = [];
+  const controlPoints2: Point[] = [];
 
   for (let index = 0; index < points.length - 1; index += 1) {
     const previousPoint = points[Math.max(index - 1, 0)];
@@ -226,19 +245,102 @@ function createSmoothFilledPath(
       x: controlPoint2.x - nextPoint.x,
       y: controlPoint2.y - nextPoint.y,
     };
+    controlPoints1.push(controlPoint1);
+    controlPoints2.push(controlPoint2);
+  }
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  const firstOutTangent = controlPoints1[0]
+    ? {
+        x: controlPoints1[0].x - firstPoint.x,
+        y: controlPoints1[0].y - firstPoint.y,
+      }
+    : { x: 1, y: 0 };
+  const lastInTangent = controlPoints2[controlPoints2.length - 1]
+    ? {
+        x: lastPoint.x - controlPoints2[controlPoints2.length - 1].x,
+        y: lastPoint.y - controlPoints2[controlPoints2.length - 1].y,
+      }
+    : { x: 1, y: 0 };
+  const firstTangentLength = Math.hypot(firstOutTangent.x, firstOutTangent.y) || 1;
+  const lastTangentLength = Math.hypot(lastInTangent.x, lastInTangent.y) || 1;
+  const startPoint = {
+    x: firstPoint.x - (firstOutTangent.x / firstTangentLength) * extensionLength,
+    y: firstPoint.y - (firstOutTangent.y / firstTangentLength) * extensionLength,
+  };
+  const endPoint = {
+    x: lastPoint.x + (lastInTangent.x / lastTangentLength) * extensionLength,
+    y: lastPoint.y + (lastInTangent.y / lastTangentLength) * extensionLength,
+  };
+  const startControlPoint1 = {
+    x: startPoint.x + (firstPoint.x - startPoint.x) * 0.67,
+    y: startPoint.y + (firstPoint.y - startPoint.y) * 0.67,
+  };
+  const startControlPoint2 = {
+    x: firstPoint.x - firstOutTangent.x,
+    y: firstPoint.y - firstOutTangent.y,
+  };
+  const endControlPoint1 = {
+    x: lastPoint.x + lastInTangent.x,
+    y: lastPoint.y + lastInTangent.y,
+  };
+  const endControlPoint2 = {
+    x: endPoint.x - (endPoint.x - lastPoint.x) * 0.33,
+    y: endPoint.y - (endPoint.y - lastPoint.y) * 0.33,
+  };
+  const hasExtension = extensionLength > 0;
+  const pathStart = hasExtension ? startPoint : firstPoint;
+  let path = `M ${formatSvgNumber(pathStart.x)} ${formatSvgNumber(pathStart.y)}`;
+  if (hasExtension) {
+    path += ` C ${formatSvgNumber(startControlPoint1.x)} ${formatSvgNumber(startControlPoint1.y)}`;
+    path += ` ${formatSvgNumber(startControlPoint2.x)} ${formatSvgNumber(startControlPoint2.y)}`;
+    path += ` ${formatSvgNumber(firstPoint.x)} ${formatSvgNumber(firstPoint.y)}`;
+  }
+
+  for (let index = 0; index < controlPoints1.length; index += 1) {
+    const controlPoint1 = controlPoints1[index];
+    const controlPoint2 = controlPoints2[index];
+    const nextPoint = points[index + 1];
 
     path += ` C ${formatSvgNumber(controlPoint1.x)} ${formatSvgNumber(controlPoint1.y)}`;
     path += ` ${formatSvgNumber(controlPoint2.x)} ${formatSvgNumber(controlPoint2.y)}`;
     path += ` ${formatSvgNumber(nextPoint.x)} ${formatSvgNumber(nextPoint.y)}`;
   }
 
-  const vertices = [...points, { x: width, y: height }, { x: 0, y: height }];
+  if (hasExtension) {
+    path += ` C ${formatSvgNumber(endControlPoint1.x)} ${formatSvgNumber(endControlPoint1.y)}`;
+    path += ` ${formatSvgNumber(endControlPoint2.x)} ${formatSvgNumber(endControlPoint2.y)}`;
+    path += ` ${formatSvgNumber(endPoint.x)} ${formatSvgNumber(endPoint.y)}`;
+  }
+
+  const closingPath = closingPoints
+    .map(
+      (point) =>
+        ` L ${formatSvgNumber(point.x)} ${formatSvgNumber(point.y)}`,
+    )
+    .join("");
   return {
-    path: `${path} L ${width} ${height} L 0 ${height} Z`,
+    path: `${path}${closingPath} Z`,
     shape: {
-      vertices,
-      inTangents: [...inTangents, { x: 0, y: 0 }, { x: 0, y: 0 }],
-      outTangents: [...outTangents, { x: 0, y: 0 }, { x: 0, y: 0 }],
+      vertices: [
+        ...(hasExtension ? [startPoint] : []),
+        ...points,
+        ...(hasExtension ? [endPoint] : []),
+        ...closingPoints,
+      ],
+      inTangents: [
+        ...(hasExtension ? [{ x: 0, y: 0 }] : []),
+        ...inTangents,
+        ...(hasExtension ? [{ x: endControlPoint2.x - endPoint.x, y: endControlPoint2.y - endPoint.y }] : []),
+        ...closingPoints.map(() => ({ x: 0, y: 0 })),
+      ],
+      outTangents: [
+        ...(hasExtension ? [{ x: startControlPoint1.x - startPoint.x, y: startControlPoint1.y - startPoint.y }] : []),
+        ...outTangents,
+        ...(hasExtension ? [{ x: 0, y: 0 }] : []),
+        ...closingPoints.map(() => ({ x: 0, y: 0 })),
+      ],
     },
   };
 }
@@ -254,6 +356,8 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
     baseHsl.lightness,
     parameters.lightness / 100,
   );
+  const rotationDegrees = ((parameters.rotation % 360) + 360) % 360;
+  const rotation = (rotationDegrees * Math.PI) / 180;
   const xPositions = generateXPositions(seed);
   const previousLayerY = Array.from(
     { length: WAVE_POINT_COUNT },
@@ -299,35 +403,89 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
         },
       );
 
+      const pathPoints = points.map((point) =>
+        rotatePoint(point, rotation, parameters.width, parameters.height),
+      );
+      const fillMargin = Math.hypot(parameters.width, parameters.height) * 1.2;
+      const closingPoints =
+        rotationDegrees === 0
+          ? [
+              { x: parameters.width, y: parameters.height },
+              { x: 0, y: parameters.height },
+            ]
+          : [
+              rotatePoint(
+                {
+                  x: parameters.width + fillMargin,
+                  y: parameters.height + fillMargin,
+                },
+                rotation,
+                parameters.width,
+                parameters.height,
+              ),
+              rotatePoint(
+                { x: -fillMargin, y: parameters.height + fillMargin },
+                rotation,
+                parameters.width,
+                parameters.height,
+              ),
+            ];
+      const pathData = createSmoothFilledPath(
+        pathPoints,
+        closingPoints,
+        rotationDegrees === 0 ? 0 : fillMargin,
+      );
+
+      const layerId = `wave-${String(layerIndex + 1).padStart(2, "0")}`;
+      const colorOverride = parameters.colorOverrides?.[layerId];
+      const safeColorOverride =
+        colorOverride && /^#[0-9a-f]{6}$/i.test(colorOverride)
+          ? colorOverride.toLowerCase()
+          : null;
+      const layerBaseHsl = safeColorOverride
+        ? hexToHsl(safeColorOverride)
+        : baseHsl;
+      const layerSaturation = safeColorOverride
+        ? adjustRelativeChannel(
+            layerBaseHsl.saturation,
+            parameters.saturation / 100,
+          )
+        : adjustedSaturation;
+      const layerLightnessBase = safeColorOverride
+        ? adjustRelativeChannel(
+            layerBaseHsl.lightness,
+            parameters.lightness / 100,
+          )
+        : adjustedLightness;
       const hue = normalizeHue(
-        baseHsl.hue + (layerProgress - 0.5) * parameters.hueRange,
+        layerBaseHsl.hue + (layerProgress - 0.5) * parameters.hueRange,
       );
       const layerLightness = Math.min(
         0.96,
-        Math.max(0.04, adjustedLightness + (layerProgress - 0.5) * 0.16),
-      );
-
-      const pathData = createSmoothFilledPath(
-        points,
-        parameters.width,
-        parameters.height,
+        Math.max(0.04, layerLightnessBase + (layerProgress - 0.5) * 0.16),
       );
 
       return {
-        id: `wave-${String(layerIndex + 1).padStart(2, "0")}`,
+        id: layerId,
         ...pathData,
         gradient: {
-          start: hslToHex(hue, adjustedSaturation, layerLightness + 0.1),
-          end: hslToHex(
-            hue + 8,
-            adjustedSaturation * 0.88,
-            layerLightness - 0.15,
+          start: hslToHex(hue, layerSaturation, layerLightness + 0.1),
+          end: hslToHex(hue + 8, layerSaturation * 0.88, layerLightness - 0.15),
+          startPoint: rotatePoint(
+            {
+              x: parameters.width * lerp(0.7, 0.45, layerProgress),
+              y: parameters.height * lerp(-0.45, 0.1, layerProgress),
+            },
+            rotation,
+            parameters.width,
+            parameters.height,
           ),
-          startPoint: {
-            x: parameters.width * lerp(0.7, 0.45, layerProgress),
-            y: parameters.height * lerp(-0.45, 0.1, layerProgress),
-          },
-          endPoint: { x: parameters.width * 0.25, y: parameters.height * 1.15 },
+          endPoint: rotatePoint(
+            { x: parameters.width * 0.25, y: parameters.height * 1.15 },
+            rotation,
+            parameters.width,
+            parameters.height,
+          ),
         },
       };
     },
@@ -356,7 +514,10 @@ export function sceneToSvg(scene: WaveScene) {
     )
     .join("");
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${scene.width}" height="${scene.height}" viewBox="0 0 ${scene.width} ${scene.height}"><title>Generated wave artwork</title><defs>${gradients}</defs><rect width="100%" height="100%" fill="${scene.backgroundColor}"/>${paths}</svg>`;
+  const canvasFill = scene.layers[0]
+    ? `url(#${scene.layers[0].id}-gradient)`
+    : scene.backgroundColor;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${scene.width}" height="${scene.height}" viewBox="0 0 ${scene.width} ${scene.height}"><title>Generated wave artwork</title><defs>${gradients}</defs><rect width="100%" height="100%" fill="${canvasFill}"/>${paths}</svg>`;
 }
 
 export function sceneToAfterEffectsJsx(scene: WaveScene) {
@@ -471,16 +632,29 @@ export function sceneToAfterEffectsJsx(scene: WaveScene) {
     duration,
     frameRate
   );
-  comp.bgColor = hexToRgb(scene.backgroundColor);
+  const canvasFill = scene.layers[0]?.gradient.start ?? scene.backgroundColor;
+  comp.bgColor = hexToRgb(canvasFill);
 
   var background = comp.layers.addSolid(
-    hexToRgb(scene.backgroundColor),
+    hexToRgb(canvasFill),
     'Background',
     scene.width,
     scene.height,
     1,
     duration
   );
+
+  if (scene.layers.length > 0) {
+    var backgroundRamp = background.property('ADBE Effect Parade').addProperty('ADBE Ramp');
+    backgroundRamp.name = 'Canvas Gradient';
+    backgroundRamp.property('ADBE Ramp-0001').setValue(scene.layers[0].gradient.startPoint);
+    backgroundRamp.property('ADBE Ramp-0002').setValue(hexToColor(scene.layers[0].gradient.start));
+    backgroundRamp.property('ADBE Ramp-0003').setValue(scene.layers[0].gradient.endPoint);
+    backgroundRamp.property('ADBE Ramp-0004').setValue(hexToColor(scene.layers[0].gradient.end));
+    backgroundRamp.property('ADBE Ramp-0005').setValue(1);
+    backgroundRamp.property('ADBE Ramp-0006').setValue(0);
+    backgroundRamp.property('ADBE Ramp-0007').setValue(0);
+  }
 
   for (var index = 0; index < scene.layers.length; index += 1) {
     addWaveLayer(comp, scene.layers[index]);
