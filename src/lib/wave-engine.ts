@@ -636,7 +636,10 @@ export function sceneToAfterEffectsJsx(scene: WaveScene) {
     duration,
     frameRate
   );
-  const canvasFill = scene.layers[0]?.gradient.start ?? scene.backgroundColor;
+  var canvasFill = scene.backgroundColor;
+  if (scene.layers.length > 0) {
+    canvasFill = scene.layers[0].gradient.start;
+  }
   comp.bgColor = hexToRgb(canvasFill);
 
   var background = comp.layers.addSolid(
@@ -667,12 +670,6 @@ export function sceneToAfterEffectsJsx(scene: WaveScene) {
   background.moveToEnd();
   comp.openInViewer();
 
-  for (var index = 0; index < scene.layers.length; index += 1) {
-    addWaveLayer(comp, scene.layers[index]);
-  }
-
-  background.moveToEnd();
-  comp.openInViewer();
   app.endUndoGroup();
 })();
 `;
