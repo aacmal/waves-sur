@@ -1,4 +1,9 @@
-type Point = { x: number; y: number };
+export type WavePoint = { x: number; y: number };
+type Point = WavePoint;
+
+export type WaveShapeOverride = {
+  y: number[];
+};
 
 export type WaveParameters = {
   width: number;
@@ -11,6 +16,7 @@ export type WaveParameters = {
   lightness: number;
   baseColor: string;
   colorOverrides?: Record<string, string>;
+  shapeOverrides?: Record<string, WaveShapeOverride>;
 };
 
 type ShapePathData = {
@@ -19,10 +25,12 @@ type ShapePathData = {
   outTangents: Point[];
 };
 
-type WaveLayer = {
+export type WaveLayer = {
   id: string;
   path: string;
   shape: ShapePathData;
+  editablePoints: Point[];
+  editableBasePoints: Point[];
   gradient: {
     start: string;
     end: string;
@@ -52,6 +60,7 @@ export const DEFAULT_PARAMETERS: WaveParameters = {
   lightness: 50,
   baseColor: "#6d63ff",
   colorOverrides: {},
+  shapeOverrides: {},
 };
 
 const BACKGROUND_COLOR = "#11121c";
@@ -71,6 +80,8 @@ export const PRESETS = [
 ];
 
 const WAVE_POINT_COUNT = 5;
+export const SHAPE_OVERRIDE_MIN_Y = -0.75;
+export const SHAPE_OVERRIDE_MAX_Y = 1.1;
 const WAVE_SMOOTHNESS = 1;
 const PRNG_GAMMA = -7046029254386353131n;
 const PRNG_MIX_A = -4658895280553007687n;
@@ -379,7 +390,8 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
       const amplitude =
         lerp(0.055, 0.095, layerProgress) * (0.8 + random.nextFloat() * 0.4);
       const minimumLayerGap = lerp(0.035, 0.06, layerProgress);
-      const points = Array.from(
+      const layerId = `wave-${String(layerIndex + 1).padStart(2, "0")}`;
+      const seedPoints = Array.from(
         { length: WAVE_POINT_COUNT },
         (_, pointIndex) => {
           const xProgress = normalizedProgress(pointIndex, WAVE_POINT_COUNT);
@@ -402,6 +414,20 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
           };
         },
       );
+      const shapeOverride = parameters.shapeOverrides?.[layerId];
+      const points = seedPoints.map((point, pointIndex) => {
+        const overrideY = shapeOverride?.y[pointIndex];
+        if (typeof overrideY !== "number" || !Number.isFinite(overrideY)) {
+          return point;
+        }
+
+        return {
+          ...point,
+          y:
+            Math.min(SHAPE_OVERRIDE_MAX_Y, Math.max(SHAPE_OVERRIDE_MIN_Y, overrideY)) *
+            parameters.height,
+        };
+      });
 
       const pathPoints = points.map((point) =>
         rotatePoint(point, rotation, parameters.width, parameters.height),
@@ -436,7 +462,6 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
         rotationDegrees === 0 ? 0 : fillMargin,
       );
 
-      const layerId = `wave-${String(layerIndex + 1).padStart(2, "0")}`;
       const colorOverride = parameters.colorOverrides?.[layerId];
       const safeColorOverride =
         colorOverride && /^#[0-9a-f]{6}$/i.test(colorOverride)
@@ -468,6 +493,8 @@ export function generateWaveScene(parameters: WaveParameters): WaveScene {
       return {
         id: layerId,
         ...pathData,
+        editablePoints: pathPoints,
+        editableBasePoints: points,
         gradient: {
           start: hslToHex(hue, layerSaturation, layerLightness + 0.1),
           end: hslToHex(hue + 8, layerSaturation * 0.88, layerLightness - 0.15),
@@ -587,24 +614,75 @@ export function sceneToAfterEffectsJsx(scene: WaveScene) {
     return [rgb[0], rgb[1], rgb[2], 1];
   }
 
+  function getPathBounds(layerData) {
+    var minX = Infinity;
+    var minY = Infinity;
+    var maxX = -Infinity;
+    var maxY = -Infinity;
+
+    function includePoint(point) {
+      minX = Math.min(minX, point[0]);
+      minY = Math.min(minY, point[1]);
+      maxX = Math.max(maxX, point[0]);
+      maxY = Math.max(maxY, point[1]);
+    }
+
+    for (var index = 0; index < layerData.vertices.length; index += 1) {
+      var vertex = layerData.vertices[index];
+      var inTangent = layerData.inTangents[index];
+      var outTangent = layerData.outTangents[index];
+      includePoint(vertex);
+      includePoint([vertex[0] + inTangent[0], vertex[1] + inTangent[1]]);
+      includePoint([vertex[0] + outTangent[0], vertex[1] + outTangent[1]]);
+    }
+
+    var padding = 2;
+    var left = Math.floor(minX - padding);
+    var top = Math.floor(minY - padding);
+    var right = Math.ceil(maxX + padding);
+    var bottom = Math.ceil(maxY + padding);
+
+    return {
+      left: left,
+      top: top,
+      width: Math.max(1, right - left),
+      height: Math.max(1, bottom - top)
+    };
+  }
+
   function addWaveLayer(comp, layerData) {
-    // Use one full-size solid per wave with a vector mask. Gradient Ramp
-    // accepts color values through JSX reliably, unlike Shape Layer's
-    // Gradient Colors property on several AE versions.
+    // Use a solid sized to the path bounds so moving a wave in After Effects
+    // never clips points that sit outside the composition frame.
+    var bounds = getPathBounds(layerData);
     var layer = comp.layers.addSolid(
       hexToRgb(layerData.gradient.start),
       layerData.id.replace('wave-', 'Wave '),
-      scene.width,
-      scene.height,
+      bounds.width,
+      bounds.height,
       1,
       duration
     );
     layer.name = layerData.id.replace('wave-', 'Wave ');
+    layer.anchorPoint.setValue([
+      bounds.width / 2,
+      bounds.height / 2
+    ]);
+    layer.position.setValue([
+      bounds.left + bounds.width / 2,
+      bounds.top + bounds.height / 2
+    ]);
 
     var mask = layer.property('ADBE Mask Parade').addProperty('ADBE Mask Atom');
     mask.name = 'Wave Path';
     var shape = new Shape();
-    shape.vertices = layerData.vertices;
+    var vertices = [];
+    for (var index = 0; index < layerData.vertices.length; index += 1) {
+      vertices.push([
+        layerData.vertices[index][0] - bounds.left,
+        layerData.vertices[index][1] - bounds.top
+      ]);
+    }
+    shape.vertices = vertices;
     shape.inTangents = layerData.inTangents;
     shape.outTangents = layerData.outTangents;
     shape.closed = true;
@@ -614,9 +692,15 @@ export function sceneToAfterEffectsJsx(scene: WaveScene) {
 
     var ramp = layer.property('ADBE Effect Parade').addProperty('ADBE Ramp');
     ramp.name = 'Wave Gradient';
-    ramp.property('ADBE Ramp-0001').setValue(layerData.gradient.startPoint);
+    ramp.property('ADBE Ramp-0001').setValue([
+      layerData.gradient.startPoint[0] - bounds.left,
+      layerData.gradient.startPoint[1] - bounds.top
+    ]);
     ramp.property('ADBE Ramp-0002').setValue(hexToColor(layerData.gradient.start));
-    ramp.property('ADBE Ramp-0003').setValue(layerData.gradient.endPoint);
+    ramp.property('ADBE Ramp-0003').setValue([
+      layerData.gradient.endPoint[0] - bounds.left,
+      layerData.gradient.endPoint[1] - bounds.top
+    ]);
     ramp.property('ADBE Ramp-0004').setValue(hexToColor(layerData.gradient.end));
     ramp.property('ADBE Ramp-0005').setValue(1);
     ramp.property('ADBE Ramp-0006').setValue(0);
@@ -707,6 +791,10 @@ export function parametersToSearchParams(params: WaveParameters): URLSearchParam
         .join(","),
     );
   }
+  const shapeOverrides = params.shapeOverrides ?? {};
+  if (Object.keys(shapeOverrides).length > 0) {
+    sp.set("so", JSON.stringify(shapeOverrides));
+  }
   return sp;
 }
 
@@ -753,6 +841,41 @@ export function searchParamsToParameters(sp: URLSearchParams): Partial<WaveParam
       }
     });
     if (Object.keys(overrides).length > 0) result.colorOverrides = overrides;
+  }
+
+  const so = sp.get("so");
+  if (so) {
+    try {
+      const parsed = JSON.parse(so) as Record<string, unknown>;
+      const shapeOverrides: Record<string, WaveShapeOverride> = {};
+
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (!/^wave-\d+$/.test(key) || !value || typeof value !== "object") {
+          return;
+        }
+
+        const y = (value as { y?: unknown }).y;
+        if (
+          !Array.isArray(y) ||
+          y.length !== WAVE_POINT_COUNT ||
+          !y.every((pointY) => typeof pointY === "number" && Number.isFinite(pointY))
+        ) {
+          return;
+        }
+
+        shapeOverrides[key] = {
+          y: y.map((pointY) =>
+            Math.min(SHAPE_OVERRIDE_MAX_Y, Math.max(SHAPE_OVERRIDE_MIN_Y, pointY)),
+          ),
+        };
+      });
+
+      if (Object.keys(shapeOverrides).length > 0) {
+        result.shapeOverrides = shapeOverrides;
+      }
+    } catch {
+      // Ignore malformed shape overrides in shared URLs.
+    }
   }
 
   return result;

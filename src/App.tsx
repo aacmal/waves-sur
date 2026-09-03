@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { Sidebar } from "./components/Sidebar";
 import type { ExportState } from "./components/Sidebar";
 import {
@@ -15,12 +21,15 @@ import {
   sceneToAfterEffectsJsx,
   sceneToSvg,
   searchParamsToParameters,
+  SHAPE_OVERRIDE_MAX_Y,
+  SHAPE_OVERRIDE_MIN_Y,
 } from "./lib/wave-engine";
 import { Icon } from "./components/Controls";
 
 const PNG_EXPORT_SCALE = 2;
 const PNG_DITHER_STRENGTH = 1.25;
 const PNG_DITHER_TILE_HEIGHT = 128;
+const SHAPE_EDITABLE_POINT_INDICES = [1, 2, 3];
 
 function applyPngDither(
   context: CanvasRenderingContext2D,
@@ -67,6 +76,14 @@ export default function App() {
   const [exportState, setExportState] = useState<ExportState>("idle");
   const canvasViewportRef = useRef<HTMLDivElement>(null);
   const canvasSvgRef = useRef<SVGSVGElement>(null);
+  const shapeDragRef = useRef<{
+    layerId: string;
+    pointIndex: number;
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startNormalizedY: number;
+  } | null>(null);
   const [canvasViewport, setCanvasViewport] = useState({
     width: 0,
     maxHeight: 0,
@@ -115,6 +132,115 @@ export default function App() {
   const activeLayerOverride = activeLayerId
     ? parameters.colorOverrides?.[activeLayerId]
     : undefined;
+  const activeShapeOverride = activeLayerId
+    ? parameters.shapeOverrides?.[activeLayerId]
+    : undefined;
+
+  const updateShapePoint = (
+    layerId: string,
+    pointIndex: number,
+    normalizedY: number,
+  ) => {
+    const layer = scene.layers.find((item) => item.id === layerId);
+    if (!layer) return;
+
+    const safeY = Math.min(
+      SHAPE_OVERRIDE_MAX_Y,
+      Math.max(SHAPE_OVERRIDE_MIN_Y, normalizedY),
+    );
+
+    setParameters((current) => {
+      const currentY = current.shapeOverrides?.[layerId]?.y;
+      const y =
+        currentY && currentY.length === layer.editableBasePoints.length
+          ? [...currentY]
+          : layer.editableBasePoints.map((point) => point.y / scene.height);
+      y[pointIndex] = safeY;
+
+      return {
+        ...current,
+        shapeOverrides: {
+          ...current.shapeOverrides,
+          [layerId]: { y },
+        },
+      };
+    });
+  };
+
+  const beginShapeDrag = (
+    event: ReactPointerEvent<SVGCircleElement>,
+    pointIndex: number,
+  ) => {
+    if (!activeLayerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    shapeDragRef.current = {
+      layerId: activeLayerId,
+      pointIndex,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startNormalizedY: activeLayer
+        ? activeLayer.editableBasePoints[pointIndex].y / scene.height
+        : 0,
+    };
+  };
+
+  const updateShapeDrag = (event: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = shapeDragRef.current;
+    if (!drag || drag.layerId !== activeLayerId) return;
+
+    const svg = canvasSvgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const deltaX =
+      ((event.clientX - drag.startClientX) / rect.width) * scene.width;
+    const deltaY =
+      ((event.clientY - drag.startClientY) / rect.height) * scene.height;
+    const rotation = (parameters.rotation * Math.PI) / 180;
+    const baseDeltaY = -Math.sin(rotation) * deltaX + Math.cos(rotation) * deltaY;
+
+    updateShapePoint(
+      drag.layerId,
+      drag.pointIndex,
+      drag.startNormalizedY + baseDeltaY / scene.height,
+    );
+  };
+
+  const endShapeDrag = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (shapeDragRef.current?.pointerId === event.pointerId) {
+      shapeDragRef.current = null;
+    }
+  };
+
+  const handleShapePointKeyDown = (
+    event: React.KeyboardEvent<SVGCircleElement>,
+    pointIndex: number,
+  ) => {
+    if (!activeLayerId || !activeLayer) return;
+    const step = event.shiftKey ? 0.1 : 0.02;
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    updateShapePoint(
+      activeLayerId,
+      pointIndex,
+      activeLayer.editableBasePoints[pointIndex].y / scene.height +
+        (event.key === "ArrowUp" ? -step : step),
+    );
+  };
+
+  const resetShapeOverride = () => {
+    if (!activeLayerId) return;
+    setParameters((current) => {
+      const shapeOverrides = { ...current.shapeOverrides };
+      delete shapeOverrides[activeLayerId];
+      return { ...current, shapeOverrides };
+    });
+  };
 
   const updatePopoverPoint = (clientX: number, clientY: number) => {
     const svg = canvasSvgRef.current;
@@ -133,6 +259,12 @@ export default function App() {
         Math.max(0, ((clientY - rect.top) / rect.height) * scene.height),
       ),
     });
+  };
+
+  const selectLayer = (layerId: string, clientX: number, clientY: number) => {
+    updatePopoverPoint(clientX, clientY);
+    setActiveLayerId(layerId);
+    setIsPopoverOpen(true);
   };
 
   const exportSvg = () => {
@@ -292,6 +424,9 @@ export default function App() {
               preserveAspectRatio="none"
               role="img"
               aria-label="Generated layered wave illustration"
+              onPointerMove={updateShapeDrag}
+              onPointerUp={endShapeDrag}
+              onPointerCancel={endShapeDrag}
             >
               <defs>
                 {scene.layers.map((layer) => (
@@ -334,28 +469,17 @@ export default function App() {
                   onBlur={() => setHoveredLayer(null)}
                   onPointerDown={(event) => {
                     event.stopPropagation();
-                    updatePopoverPoint(event.clientX, event.clientY);
-                    if (activeLayerId === layer.id && isPopoverOpen) {
-                      setIsPopoverOpen(false);
-                    } else {
-                      setActiveLayerId(layer.id);
-                      setIsPopoverOpen(true);
-                    }
+                    selectLayer(layer.id, event.clientX, event.clientY);
                   }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       const rect = event.currentTarget.getBoundingClientRect();
-                      updatePopoverPoint(
+                      selectLayer(
+                        layer.id,
                         rect.left + rect.width / 2,
                         rect.top + rect.height / 2,
                       );
-                      if (activeLayerId === layer.id && isPopoverOpen) {
-                        setIsPopoverOpen(false);
-                      } else {
-                        setActiveLayerId(layer.id);
-                        setIsPopoverOpen(true);
-                      }
                     }
                   }}
                 >
@@ -366,18 +490,75 @@ export default function App() {
                   />
                 </g>
               ))}
-              <PopoverAnchor asChild>
-                <foreignObject
-                  key={`${activeLayerId ?? "none"}-${popoverPoint.x}-${popoverPoint.y}`}
-                  x={popoverPoint.x}
-                  y={popoverPoint.y}
-                  width="1"
-                  height="1"
-                  aria-hidden="true"
-                  style={{ opacity: 0, pointerEvents: "none" }}
-                />
-              </PopoverAnchor>
+              {isPopoverOpen && activeLayer && (
+                <g
+                  aria-label={`Shape points for ${activeLayer.id.replace("wave-", "Wave ")}`}
+                  data-shape-controls="true"
+                >
+                  {activeLayer.editablePoints.map((point, pointIndex) => {
+                    const isEditable = SHAPE_EDITABLE_POINT_INDICES.includes(
+                      pointIndex,
+                    );
+                    const x = Math.min(scene.width, Math.max(0, point.x));
+                    const y = Math.min(scene.height, Math.max(0, point.y));
+                    return (
+                      <circle
+                        key={`${activeLayer.id}-shape-point-${pointIndex}`}
+                        cx={x}
+                        cy={y}
+                        r={isEditable ? 16 : 10}
+                        fill={isEditable ? "#d8ff72" : activeLayer.gradient.start}
+                        fillOpacity={isEditable ? 1 : 0.7}
+                        stroke="#171923"
+                        strokeWidth="4"
+                        data-shape-point="true"
+                        className={isEditable ? "cursor-ns-resize" : ""}
+                        role={isEditable ? "slider" : undefined}
+                        tabIndex={isEditable ? 0 : undefined}
+                        aria-label={
+                          isEditable
+                            ? `Shape point ${pointIndex + 1}`
+                            : undefined
+                        }
+                        aria-valuemin={
+                          isEditable ? SHAPE_OVERRIDE_MIN_Y : undefined
+                        }
+                        aria-valuemax={
+                          isEditable ? SHAPE_OVERRIDE_MAX_Y : undefined
+                        }
+                        aria-valuenow={
+                          isEditable
+                            ? activeLayer.editableBasePoints[pointIndex].y /
+                              scene.height
+                            : undefined
+                        }
+                        onPointerDown={
+                          isEditable
+                            ? (event) => beginShapeDrag(event, pointIndex)
+                            : undefined
+                        }
+                        onKeyDown={
+                          isEditable
+                            ? (event) =>
+                                handleShapePointKeyDown(event, pointIndex)
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
+                </g>
+              )}
             </svg>
+            <PopoverAnchor asChild>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute size-px"
+                style={{
+                  left: `${(popoverPoint.x / scene.width) * 100}%`,
+                  top: `${(popoverPoint.y / scene.height) * 100}%`,
+                }}
+              />
+            </PopoverAnchor>
               <PopoverContent
                 forceMount
                 side="top"
@@ -387,59 +568,75 @@ export default function App() {
                 className="wave-popover-content w-auto min-w-48"
                 aria-hidden={!isPopoverOpen}
                 inert={!isPopoverOpen}
-                onPointerDownOutside={(event) => {
+                onInteractOutside={(event) => {
                   const target = event.target;
                   if (
                     target instanceof Element &&
-                    target.closest("[data-wave-trigger]")
+                    target.closest(
+                      "[data-wave-trigger], [data-shape-point], [data-reset-shape]",
+                    )
                   ) {
                     event.preventDefault();
                   }
                 }}
               >
-                <h2 className="mb-2.5 font-mono text-[11px] tracking-wide text-[#d8ff72]">
-                  Override this color
-                </h2>
-                <div className="flex items-center gap-2">
-                  <input
-                    className="size-10 cursor-pointer rounded-lg border border-white/15 bg-transparent p-0"
-                    type="color"
-                    value={
-                      activeLayerOverride ?? panelLayer.gradient.start
-                    }
-                    onChange={(event) =>
-                      setParameters((current) => ({
+                <section>
+                  <h2 className="mb-2.5 font-mono text-[11px] tracking-wide text-[#d8ff72]">
+                    Override this color
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="size-10 cursor-pointer rounded-lg border border-white/15 bg-transparent p-0"
+                      type="color"
+                      value={
+                        activeLayerOverride ?? panelLayer.gradient.start
+                      }
+                      onChange={(event) =>
+                        setParameters((current) => ({
                           ...current,
                           colorOverrides: {
                             ...current.colorOverrides,
                             [panelLayer.id]: event.target.value,
-                        },
-                      }))
-                    }
-                    aria-label="Override this color"
-                  />
-                  {activeLayerOverride && (
-                    <button
-                      className="grid size-8 place-items-center rounded-lg text-[#b4b4bd] transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d8ff72]"
-                      type="button"
-                      onClick={() =>
-                        setParameters((current) => {
-                          const colorOverrides = {
-                            ...current.colorOverrides,
-                          };
-                          delete colorOverrides[panelLayer.id];
-                          return { ...current, colorOverrides };
-                        })
+                          },
+                        }))
                       }
-                      aria-label="Reset color override"
-                      title="Reset color override"
-                    >
-                      <RotateCcw aria-hidden="true" className="size-4" />
-                    </button>
-                  )}
-                </div>
+                      aria-label="Override this color"
+                    />
+                    {activeLayerOverride && (
+                      <button
+                        className="grid size-8 place-items-center rounded-lg text-[#b4b4bd] transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d8ff72]"
+                        type="button"
+                        onClick={() =>
+                          setParameters((current) => {
+                            const colorOverrides = {
+                              ...current.colorOverrides,
+                            };
+                            delete colorOverrides[panelLayer.id];
+                            return { ...current, colorOverrides };
+                          })
+                        }
+                        aria-label="Reset color override"
+                        title="Reset color override"
+                      >
+                        <RotateCcw aria-hidden="true" className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </section>
               </PopoverContent>
             </Popover>
+            {isPopoverOpen && activeShapeOverride && (
+              <button
+                className="absolute right-3 top-3 z-10 grid size-8 place-items-center rounded-lg border border-white/15 bg-black/35 text-white/70 backdrop-blur-sm transition hover:bg-black/55 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#d8ff72]"
+                type="button"
+                data-reset-shape="true"
+                onClick={resetShapeOverride}
+                aria-label="Reset shape override"
+                title="Reset shape override"
+              >
+                <RotateCcw aria-hidden="true" className="size-4" />
+              </button>
+            )}
           </div>
         </div>
 
